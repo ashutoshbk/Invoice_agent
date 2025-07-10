@@ -6,7 +6,7 @@ from openai import OpenAI
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-import fitz  # PyMuPDF
+import fitz  
 import streamlit as st
 
 # Load environment variables
@@ -69,21 +69,29 @@ def load_and_extract_text(uploaded_file) -> str:
 
 def extract_fields_with_llm(text: str) -> dict:
     """
-    Use GPT-4 via the OpenAI client to extract invoice fields from text.
+    Use GPT-4 via the OpenAI client to extract invoice metadata and line-item/product info.
     """
     prompt = (
         "You are an invoice-processing assistant.\n"
-        "Extract exactly these fields in JSON format: invoice_number, invoice_date (YYYY-MM-DD), vendor_name, total_amount.\n"
-        "If a field is not present, return an empty string.\n"
-        "Invoice Text:\n```\n" + text + "\n```"
+        "Extract exactly the following into a JSON object:\n"
+        "  • invoice_number (string)\n"
+        "  • invoice_date (YYYY-MM-DD)\n"
+        "  • vendor_name (string)\n"
+        "  • total_amount (numeric with currency)\n"
+        "  • products (array of objects, each with description, quantity, unit_price, line_total)\n"
+        "If any field is missing, use an empty string or empty array. Do not return any extra keys.\n\n"
+        "Here is the raw invoice text:\n```\n"
+        + text +
+        "\n```\n\n"
+        "Respond *only* with the JSON."
     )
+
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
-    content = response.choices[0].message.content
-    return json.loads(content)
+    return json.loads(response.choices[0].message.content)
 
 
 def run_pipeline(uploaded_file) -> dict:
